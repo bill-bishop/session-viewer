@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
-import { extractErrors } from './errors';
+import { extractErrors } from './errors.js';
 export async function loadAllSessions(projectsDir) {
     const sessions = [];
     // Fix Windows pathname from import.meta.url which returns /C:/path/to/dir

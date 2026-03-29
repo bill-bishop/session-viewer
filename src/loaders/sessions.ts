@@ -1,9 +1,9 @@
 import { readdir, readFile } from 'fs/promises'
 import { basename, join } from 'path'
-import type { SessionSummary, ContentBlock } from '../types'
-import { countToolCalls, countErrors } from './analyzers'
-import { loadSessionEntries } from './entries'
-import { extractErrors } from './errors'
+import type { SessionSummary, ContentBlock } from '../types.js'
+import { countToolCalls, countErrors } from './analyzers.js'
+import { loadSessionEntries } from './entries.js'
+import { extractErrors } from './errors.js'
 
 export async function loadAllSessions(projectsDir: string): Promise<SessionSummary[]> {
   const sessions: SessionSummary[] = []

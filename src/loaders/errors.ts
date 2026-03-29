@@ -3,7 +3,7 @@
  * Errors are in message.content[0].is_error (tool_result blocks)
  */
 
-import type { SessionError } from '../types'
+import type { SessionError } from '../types.js'
 
 export function extractErrors(entries: any[]): SessionError[] {
   const errors: SessionError[] = []

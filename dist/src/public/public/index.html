@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #222;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+      min-height: 600px;
+    }
+
+    .sidebar {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      max-height: 80vh;
+    }
+
+    .sidebar h2 {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      color: #666;
+    }
+
+    .session-list {
+      list-style: none;
+    }
+
+    .session-item {
+      padding: 10px;
+      margin-bottom: 8px;
+      border-left: 3px solid transparent;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .session-item:hover {
+      background: #f0f0f0;
+      border-left-color: #007bff;
+    }
+
+    .session-item.active {
+      background: #e7f3ff;
+      border-left-color: #007bff;
+      font-weight: 500;
+    }
+
+    .session-item .meta {
+      display: block;
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .content {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      max-height: 80vh;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    .section {
+      margin-bottom: 40px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .summary-card {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid #eee;
+    }
+
+    .summary-card .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #999;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .summary-card .value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #007bff;
+    }
+
+    .summary-card.text .value {
+      font-size: 14px;
+      color: #333;
+      word-break: break-all;
+    }
+
+    .entries-container {
+      margin-top: 20px;
+    }
+
+    .entry {
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fafafa;
+      border-left: 3px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+
+    .entry.user {
+      border-left-color: #4caf50;
+    }
+
+    .entry.assistant {
+      border-left-color: #2196f3;
+    }
+
+    .entry.tool_use {
+      border-left-color: #ff9800;
+    }
+
+    .entry.tool_result {
+      border-left-color: #9c27b0;
+    }
+
+    .entry.error {
+      border-left-color: #f44336;
+      background: #ffebee;
+    }
+
+    .entry.file-history-snapshot {
+      border-left-color: #00bcd4;
+    }
+
+    .entry-collapsed {
+      padding: 4px 12px;
+      margin-bottom: 2px;
+      color: #aaa;
+      font-size: 11px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .entry-collapsed.has-error {
+      color: #c62828;
+      background: #ffebee;
+      border-radius: 3px;
+    }
+
+    details.meta-block.has-error > summary {
+      color: #c62828;
+    }
+
+    .entry-header {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .entry-type {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .entry-timestamp {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .entry-uuid {
+      font-size: 11px;
+      color: #999;
+      font-family: monospace;
+    }
+
+    .entry-content {
+      margin-top: 8px;
+      padding: 8px;
+      background: white;
+      border-radius: 3px;
+      border: 1px solid #eee;
+      font-size: 13px;
+      color: #333;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      line-height: 1.5;
+    }
+
+    details.meta-block {
+      font-size: 12px;
+      border-left: 2px solid #ccc;
+      margin: 2px 0;
+      padding-left: 8px;
+    }
+
+    details.meta-block summary {
+      cursor: pointer;
+      color: #999;
+      font-size: 11px;
+      padding: 2px 0;
+      user-select: none;
+    }
+
+    details.meta-block summary:hover { color: #555; }
+
+    details.meta-block .meta-fields {
+      padding: 4px 0 4px 4px;
+      font-size: 11px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      color: #555;
+    }
+
+    details.meta-block .meta-fields div { margin-bottom: 2px; }
+    details.meta-block .meta-fields .label { color: #999; }
+
+    details.meta-block .meta-fields pre {
+      margin: 2px 0;
+      padding: 4px 6px;
+      background: #f8f8f8;
+      border-radius: 3px;
+      font-size: 11px;
+      max-height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .subagents-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .subagent-card {
+      padding: 12px;
+      background: #f0f7ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .subagent-card:hover {
+      background: #e1f0ff;
+      border-color: #80c0ff;
+    }
+
+    .subagent-card.active {
+      background: #007bff;
+      color: white;
+      border-color: #0056b3;
+    }
+
+    .subagent-card .agent-id {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 4px;
+      font-family: monospace;
+    }
+
+    .subagent-card .prompt-id {
+      font-size: 11px;
+      opacity: 0.7;
+      font-family: monospace;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #999;
+    }
+
+    .error-message {
+      padding: 12px;
+      background: #ffebee;
+      border: 1px solid #ef5350;
+      border-radius: 4px;
+      color: #c62828;
+      margin-bottom: 20px;
+    }
+
+    code {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 Session Viewer</h1>
+
+    <!-- Metrics Chart -->
+    <div class="section" id="chartSection" style="background: white; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap;">
+        <h2 style="margin: 0; border: none; padding: 0;">Session Metrics</h2>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555;">
+          <label for="chartFrom">From</label>
+          <input type="date" id="chartFrom" style="font-size: 13px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;" oninput="onDateInputChange()">
+          <label for="chartTo">To</label>
+          <input type="date" id="chartTo" style="font-size: 13px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;" oninput="onDateInputChange()">
+          <button onclick="clearDateRange()" style="font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer;">Clear</button>
+        </div>
+      </div>
+      <div id="presetButtons" style="display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;">
+        <button onclick="applyPreset(1, this)"    class="preset-btn" style="font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer;">Last Hour</button>
+        <button onclick="applyPreset(3, this)"    class="preset-btn" style="font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer;">Last 3 Hours</button>
+        <button onclick="applyPreset(12, this)"   class="preset-btn" style="font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer;">Last 12 Hours</button>
+        <button onclick="applyPreset(24, this)"   class="preset-btn" style="font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer;">Last 24 Hours</button>
+        <button onclick="applyPreset(72, this)"   class="preset-btn" style="font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer;">Last 72 Hours</button>
+        <button onclick="applyPreset(168, this)"  class="preset-btn" style="font-size: 12px; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer;">Last Week</button>
+      </div>
+      <div style="position: relative; height: 300px;">
+        <canvas id="metricsChart"></canvas>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="sidebar">
+        <h2>Sessions</h2>
+        <div id="loading" class="loading">Loading...</div>
+        <ul id="sessionList" class="session-list" style="display: none;"></ul>
+      </div>
+
+      <div class="content">
+        <div id="emptyState" class="empty-state">
+          <p>Select a session to view details</p>
+        </div>
+        <div id="sessionContent" style="display: none;">
+          <div id="errorContainer"></div>
+
+          <!-- Session Summary -->
+          <div class="section">
+            <h2>Session Summary</h2>
+            <div class="summary-grid" id="summaryGrid"></div>
+          </div>
+
+          <!-- Subagents -->
+          <div class="section" id="subagentsSection" style="display: none;">
+            <h2>Subagents</h2>
+            <div class="subagents-list" id="subagentsList"></div>
+            <div id="subagentEntriesContainer" style="margin-top: 20px;"></div>
+          </div>
+
+          <!-- Entries -->
+          <div class="section">
+            <h2 id="entriesTitle">Session Entries</h2>
+            <div class="entries-container" id="entriesContainer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api'
+    let allSessions = []
+    let currentSessionId = null
+    let currentSubagentId = null
+    let metricsChartInstance = null
+    let sinceMs = null
+
+    // Utility: Format timestamp
+    function formatTime(iso) {
+      try {
+        return new Date(iso).toLocaleString()
+      } catch {
+        return iso
+      }
+    }
+
+    // Utility: Truncate text
+    function truncate(text, len = 100) {
+      if (typeof text !== 'string') return String(text)
+      return text.length > len ? text.substring(0, len) + '…' : text
+    }
+
+    // Fetch all sessions
+    async function loadSessions() {
+      try {
+        const res = await fetch(`${API_BASE}/sessions`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        allSessions = await res.json()
+
+        const list = document.getElementById('sessionList')
+        const loading = document.getElementById('loading')
+
+        list.innerHTML = allSessions
+          .map(
+            s => `
+          <li class="session-item" onclick="selectSession('${s.sessionId}')">
+            <strong>${s.projectSlug}</strong>
+            <span class="meta">${s.entryCount} entries</span>
+            <span class="meta">${new Date(s.timestamp).toLocaleDateString()}</span>
+          </li>
+        `
+          )
+          .join('')
+
+        loading.style.display = 'none'
+        list.style.display = 'block'
+        updateMetricsChart()
+      } catch (err) {
+        console.error('Failed to load sessions:', err)
+        document.getElementById('loading').innerHTML = `<p style="color: red;">Error loading sessions</p>`
+      }
+    }
+
+    // Select a session
+    async function selectSession(sessionId) {
+      currentSessionId = sessionId
+      currentSubagentId = null
+
+      // Update UI — highlight matching sidebar item by sessionId
+      const items = document.querySelectorAll('.session-item')
+      items.forEach((el, i) => {
+        if (allSessions[i]?.sessionId === sessionId) {
+          el.classList.add('active')
+          el.scrollIntoView({ block: 'nearest' })
+        } else {
+          el.classList.remove('active')
+        }
+      })
+
+      document.getElementById('emptyState').style.display = 'none'
+      document.getElementById('sessionContent').style.display = 'block'
+
+      await loadSessionData(sessionId)
+    }
+
+    // Load session data
+    async function loadSessionData(sessionId) {
+      try {
+        document.getElementById('errorContainer').innerHTML = ''
+
+        // Fetch session summary
+        const sessionSummary = allSessions.find(s => s.sessionId === sessionId)
+
+        // Render summary
+        const summaryGrid = document.getElementById('summaryGrid')
+        summaryGrid.innerHTML = `
+        <div class="summary-card">
+          <div class="label">Project</div>
+          <div class="value">${sessionSummary.projectSlug}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Entries</div>
+          <div class="value">${sessionSummary.entryCount}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Tool Calls</div>
+          <div class="value">${sessionSummary.toolCalls}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Errors</div>
+          <div class="value">${sessionSummary.errors}</div>
+        </div>
+        <div class="summary-card text">
+          <div class="label">CWD</div>
+          <div class="value">${truncate(sessionSummary.cwd, 50)}</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Timestamp</div>
+          <div class="value">${formatTime(sessionSummary.timestamp)}</div>
+        </div>
+      `
+
+        // Render subagents
+        if (sessionSummary.subagents.length > 0) {
+          document.getElementById('subagentsSection').style.display = 'block'
+          const subagentsList = document.getElementById('subagentsList')
+          subagentsList.innerHTML = sessionSummary.subagents
+            .map(
+              ag => `
+            <div class="subagent-card" onclick="selectSubagent('${sessionId}', '${ag.agentId}', event)">
+              <div class="agent-id">Agent: ${ag.agentId.substring(0, 12)}…</div>
+              <div class="prompt-id">Prompt: ${ag.promptId.substring(0, 12)}…</div>
+            </div>
+          `
+            )
+            .join('')
+        } else {
+          document.getElementById('subagentsSection').style.display = 'none'
+        }
+
+        // Fetch and render entries
+        const res = await fetch(`${API_BASE}/sessions/${sessionId}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const entries = await res.json()
+
+        document.getElementById('entriesTitle').textContent = `Session Entries (${entries.length})`
+        renderEntries(entries)
+      } catch (err) {
+        console.error('Failed to load session data:', err)
+        document.getElementById('errorContainer').innerHTML = `<div class="error-message">Error: ${err.message}</div>`
+      }
+    }
+
+    // Apply a preset time range (hours back from now)
+    function applyPreset(hours, btn) {
+      sinceMs = Date.now() - hours * 60 * 60 * 1000
+      document.getElementById('chartFrom').value = ''
+      document.getElementById('chartTo').value = ''
+      document.querySelectorAll('.preset-btn').forEach(b => b.style.background = '#f5f5f5')
+      btn.style.background = '#d0e8ff'
+      updateMetricsChart()
+    }
+
+    // When date inputs change manually, clear the preset selection
+    function onDateInputChange() {
+      sinceMs = null
+      document.querySelectorAll('.preset-btn').forEach(b => b.style.background = '#f5f5f5')
+      updateMetricsChart()
+    }
+
+    // Clear date range inputs and preset
+    function clearDateRange() {
+      sinceMs = null
+      document.getElementById('chartFrom').value = ''
+      document.getElementById('chartTo').value = ''
+      document.querySelectorAll('.preset-btn').forEach(b => b.style.background = '#f5f5f5')
+      updateMetricsChart()
+    }
+
+    // Update metrics chart
+    function updateMetricsChart() {
+      const ctx = document.getElementById('metricsChart').getContext('2d')
+
+      // Sort ascending (left = oldest, right = newest)
+      const sorted = [...allSessions].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+
+      // Apply date range filter (date inputs) or preset (sinceMs)
+      const fromVal = document.getElementById('chartFrom')?.value
+      const toVal = document.getElementById('chartTo')?.value
+      const filtered = sorted.filter(s => {
+        if (sinceMs !== null) {
+          return new Date(s.timestamp).getTime() >= sinceMs
+        }
+        const date = s.timestamp.substring(0, 10)
+        if (fromVal && date < fromVal) return false
+        if (toVal && date > toVal) return false
+        return true
+      })
+
+      const labels = filtered.map(s => new Date(s.timestamp).toLocaleString())
+
+      if (metricsChartInstance) {
+        metricsChartInstance.destroy()
+      }
+
+      const errorRates = filtered.map(s => s.entryCount > 0 ? Math.round(s.errors / s.entryCount * 1000) / 10 : 0)
+      const maxErrorRate = Math.max(...errorRates, 1)
+      const y1Max = Math.ceil(maxErrorRate * 1.3 / 5) * 5 // pad 30%, round up to nearest 5
+
+      metricsChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Entries',
+              data: filtered.map(s => s.entryCount),
+              borderColor: '#2196f3',
+              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+              tension: 0.3,
+              pointRadius: 3,
+              pointBackgroundColor: '#2196f3',
+              yAxisID: 'y',
+              hidden: true
+            },
+            {
+              label: 'Tool Calls',
+              data: filtered.map(s => s.toolCalls),
+              borderColor: '#4caf50',
+              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+              tension: 0.3,
+              pointRadius: 3,
+              pointBackgroundColor: '#4caf50',
+              yAxisID: 'y'
+            },
+            {
+              label: 'Errors',
+              data: filtered.map(s => s.errors),
+              borderColor: '#f44336',
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              tension: 0.3,
+              pointRadius: 3,
+              pointBackgroundColor: '#f44336',
+              yAxisID: 'y'
+            },
+            {
+              label: 'Error Rate (%)',
+              data: errorRates,
+              borderColor: '#ff9800',
+              backgroundColor: 'rgba(255, 152, 0, 0.1)',
+              tension: 0.3,
+              pointRadius: 3,
+              pointBackgroundColor: '#ff9800',
+              yAxisID: 'y1',
+              borderDash: [4, 3]
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          onClick(evt, elements) {
+            if (elements.length > 0) {
+              const idx = elements[0].index
+              const session = filtered[idx]
+              if (session) selectSession(session.sessionId)
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                label(ctx) {
+                  const suffix = ctx.dataset.label === 'Error Rate (%)' ? '%' : ''
+                  return ` ${ctx.dataset.label}: ${ctx.parsed.y}${suffix}`
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              position: 'left',
+              title: { display: true, text: 'Count' }
+            },
+            y1: {
+              beginAtZero: true,
+              position: 'right',
+              max: y1Max,
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: 'Error Rate (%)' },
+              ticks: { callback: v => v + '%' }
+            }
+          }
+        }
+      })
+    }
+
+    // Select a subagent
+    async function selectSubagent(sessionId, agentId, e) {
+      currentSubagentId = agentId
+      e.stopPropagation()
+
+      // Update UI
+      document.querySelectorAll('.subagent-card').forEach(el => el.classList.remove('active'))
+      e.target.closest('.subagent-card').classList.add('active')
+
+      try {
+        const res = await fetch(`${API_BASE}/sessions/${sessionId}/subagents/${agentId}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const entries = await res.json()
+
+        const container = document.getElementById('subagentEntriesContainer')
+        container.innerHTML = `<h3 style="margin-top: 20px; margin-bottom: 15px;">Subagent Entries (${entries.length})</h3>`
+        renderEntries(entries, container)
+      } catch (err) {
+        console.error('Failed to load subagent entries:', err)
+        document.getElementById('subagentEntriesContainer').innerHTML = `<div class="error-message">Error: ${err.message}</div>`
+      }
+    }
+
+    // Render entries
+    function renderEntries(entries, container = null) {
+      const target = container || document.getElementById('entriesContainer')
+      if (!container) {
+        target.innerHTML = ''
+      }
+
+      const fragment = document.createDocumentFragment()
+
+      entries.forEach(entry => {
+        const el = document.createElement('div')
+
+        if (!entry.message) {
+          el.className = 'entry-collapsed'
+          el.innerHTML = `<span class="entry-type">${entry.type}</span> <span class="entry-timestamp">${formatTime(entry.timestamp)}</span>`
+          fragment.appendChild(el)
+          return
+        }
+
+        const content = entry.message.content
+
+        // String content
+        if (typeof content === 'string') {
+          if (isXmlWrapped(content)) {
+            el.className = 'entry-collapsed'
+            el.innerHTML = `<span class="entry-type">${entry.type}</span> <span class="entry-timestamp">${formatTime(entry.timestamp)}</span>` + renderCollapsedBlock({ type: entry.type, _xml: content })
+          } else {
+            el.className = `entry ${entry.type}`
+            el.innerHTML = `<div class="entry-header"><span class="entry-type">${entry.type}</span> <span class="entry-timestamp">${formatTime(entry.timestamp)}</span></div><div class="entry-content">${escapeHtml(content)}</div>`
+          }
+          fragment.appendChild(el)
+          return
+        }
+
+        // Array content — split into text vs non-text blocks
+        if (Array.isArray(content)) {
+          const hasText = content.some(b => b.type === 'text' && b.text && !isXmlWrapped(b.text))
+
+          if (hasText) {
+            el.className = `entry ${entry.type}`
+            let html = `<div class="entry-header"><span class="entry-type">${entry.type}</span> <span class="entry-timestamp">${formatTime(entry.timestamp)}</span></div>`
+
+            for (const block of content) {
+              if (block.type === 'text' && block.text) {
+                if (isXmlWrapped(block.text)) {
+                  html += renderCollapsedBlock({ type: 'text', _xml: block.text })
+                } else {
+                  html += `<div class="entry-content">${escapeHtml(block.text)}</div>`
+                }
+              } else {
+                html += renderCollapsedBlock(block)
+              }
+            }
+
+            el.innerHTML = html
+          } else {
+            const hasError = content.some(b => b.is_error)
+            el.className = 'entry-collapsed' + (hasError ? ' has-error' : '')
+            let html = `<span class="entry-type">${entry.type}</span> <span class="entry-timestamp">${formatTime(entry.timestamp)}</span>`
+            for (const block of content) {
+              html += renderCollapsedBlock(block)
+            }
+            el.innerHTML = html
+          }
+
+          fragment.appendChild(el)
+          return
+        }
+
+        // Fallback
+        el.className = 'entry-collapsed'
+        el.innerHTML = `<span class="entry-type">${entry.type}</span> <span class="entry-timestamp">${formatTime(entry.timestamp)}</span>`
+        fragment.appendChild(el)
+      })
+
+      target.appendChild(fragment)
+    }
+
+    // Utility: Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div')
+      div.textContent = text
+      return div.innerHTML
+    }
+
+    // Check if a string is primarily XML-tag wrapped
+    function isXmlWrapped(str) {
+      const trimmed = str.trim()
+      return trimmed.startsWith('<') && trimmed.endsWith('>') && /<\/[a-zA-Z][a-zA-Z0-9_-]*>\s*$/.test(trimmed)
+    }
+
+    // Build a collapsed <details> for a non-text content block or xml-wrapped string
+    function renderCollapsedBlock(block) {
+      const type = block.type || 'unknown'
+
+      // Build summary label — show type + any useful identifier
+      let summary = ''
+      if (block._xml) {
+        // Extract top-level XML tags with their short values
+        const tagMatches = [...block._xml.matchAll(/<([a-zA-Z][a-zA-Z0-9_-]*)(?:\s[^>]*)?>([^<]*)<\/\1>/g)]
+        const seen = new Set()
+        const tagParts = []
+        for (const m of tagMatches) {
+          if (seen.has(m[1])) continue
+          seen.add(m[1])
+          const val = m[2].trim()
+          if (val) {
+            tagParts.push(`<em>${escapeHtml(m[1])}</em>: ${escapeHtml(truncate(val, 40))}`)
+          }
+        }
+        summary = escapeHtml(type) + (tagParts.length ? ' — ' + tagParts.join(' &nbsp;') : '')
+      } else {
+        let summaryParts = [type]
+        if (block.name) summaryParts.push(block.name)
+        if (block.input?.description) summaryParts.push('— ' + truncate(block.input.description, 60))
+        else if (block.input?.command) summaryParts.push('— ' + truncate(block.input.command, 60))
+        else if (block.input?.file_path) summaryParts.push('— ' + truncate(block.input.file_path, 60))
+        else if (block.input?.pattern) summaryParts.push('— ' + truncate(block.input.pattern, 60))
+        if (block.is_error) summaryParts.push('⚠ error')
+        if (type === 'tool_result' && block.content) {
+          const preview = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
+          summaryParts.push('— ' + truncate(preview.replace(/\s+/g, ' ').trim(), 80))
+        }
+        summary = escapeHtml(summaryParts.join(' '))
+      }
+
+      // Build expandable detail fields — render every key that has useful content
+      let fieldsHtml = ''
+      const skip = new Set(['type', 'name', 'id', 'tool_use_id', 'signature', '_xml'])
+
+      if (block._xml) {
+        fieldsHtml += `<pre>${escapeHtml(block._xml)}</pre>`
+      } else {
+        for (const [key, val] of Object.entries(block)) {
+          if (skip.has(key)) continue
+          if (val === null || val === undefined || val === '') continue
+          if (key === 'input' && typeof val === 'object') {
+            for (const [ik, iv] of Object.entries(val)) {
+              if (iv === null || iv === undefined || iv === '') continue
+              const s = typeof iv === 'string' ? iv : JSON.stringify(iv, null, 2)
+              if (s.includes('\n') || s.length > 80) {
+                fieldsHtml += `<div><span class="label">${escapeHtml(ik)}:</span></div><pre>${escapeHtml(s)}</pre>`
+              } else {
+                fieldsHtml += `<div><span class="label">${escapeHtml(ik)}:</span> ${escapeHtml(s)}</div>`
+              }
+            }
+          } else if (key === 'content') {
+            const s = typeof val === 'string' ? val : JSON.stringify(val, null, 2)
+            fieldsHtml += `<div><span class="label">content:</span></div><pre>${escapeHtml(truncate(s, 1000))}</pre>`
+          } else if (key === 'thinking') {
+            if (val) fieldsHtml += `<div><span class="label">thinking:</span></div><pre>${escapeHtml(truncate(val, 500))}</pre>`
+          } else {
+            const s = typeof val === 'string' ? val : JSON.stringify(val)
+            fieldsHtml += `<div><span class="label">${escapeHtml(key)}:</span> ${escapeHtml(truncate(s, 120))}</div>`
+          }
+        }
+      }
+
+      const errorClass = block.is_error ? ' has-error' : ''
+      return `<details class="meta-block${errorClass}"><summary>${summary}</summary><div class="meta-fields">${fieldsHtml}</div></details>`
+    }
+
+    // Initialize
+    loadSessions()
+  </script>
+</body>
+</html>
