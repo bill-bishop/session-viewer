@@ -1,4 +1,4 @@
-import type { SessionEntry, ContentBlock } from '../types.ts'
+import type { SessionEntry, ContentBlock } from '../types'
 
 export async function countToolCalls(entries: SessionEntry[]): Promise<number> {
   return entries.filter(entry => {

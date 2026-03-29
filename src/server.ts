@@ -1,8 +1,10 @@
+#!/usr/bin/env node
 import express from 'express'
 import os from 'os'
 import path from 'path'
-import { loadAllSessions } from './loaders/sessions.ts'
-import { loadSessionEntries, loadSubagentEntries } from './loaders/entries.ts'
+import { fileURLToPath } from 'url'
+import { loadAllSessions } from './loaders/sessions'
+import { loadSessionEntries, loadSubagentEntries } from './loaders/entries'
 
 const app = express()
 
@@ -27,7 +29,7 @@ app.get('/api/sessions/:id/subagents/:agentId', async (req, res) => {
   res.json(entries)
 })
 
-app.use(express.static('src/public'))
+app.use(express.static(fileURLToPath(new URL('./public', import.meta.url))))
 app.get('/', (req, res) => {
   res.sendFile(new URL('./public/index.html', import.meta.url).pathname)
 })

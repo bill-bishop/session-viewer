@@ -2,7 +2,11 @@
   "name": "session-viewer",
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "session-viewer": "./dist/src/server.js"
+  },
   "scripts": {
+    "build": "tsc && cp -r src/public dist/src/public",
     "start": "ts-node src/server.ts",
     "test": "vitest run --reporter=verbose"
   },

@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
-import type { SessionEntry } from '../types.ts'
+import type { SessionEntry } from '../types'
 import { randomUUID } from 'crypto'
 
 function normalizePath(p: string): string {
