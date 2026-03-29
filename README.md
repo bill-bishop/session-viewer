@@ -20,8 +20,8 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## Configuration
 
-By default, sessions are read from `~/.claude/projects`. To point at a different directory:
+By default, sessions are read from `~/.claude/projects` and the server runs on port 3000.
 
 ```sh
-PROJECTS_DIR=/path/to/projects npx session-viewer
+npx session-viewer --project-dir /path/to/projects --port 8080
 ```

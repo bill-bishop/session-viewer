@@ -5,7 +5,12 @@ import { loadAllSessions } from './loaders/sessions.ts'
 import { loadSessionEntries, loadSubagentEntries } from './loaders/entries.ts'
 
 const app = express()
-const PROJECTS_DIR = process.env.PROJECTS_DIR || path.join(os.homedir(), '.claude', 'projects')
+
+const args = process.argv.slice(2)
+const projectDirIdx = args.indexOf('--project-dir')
+const portIdx = args.indexOf('--port')
+const PROJECTS_DIR = projectDirIdx !== -1 ? args[projectDirIdx + 1] : path.join(os.homedir(), '.claude', 'projects')
+const PORT = portIdx !== -1 ? parseInt(args[portIdx + 1], 10) : 3000
 
 app.get('/api/sessions', async (req, res) => {
   const sessions = await loadAllSessions(PROJECTS_DIR)
@@ -27,6 +32,6 @@ app.get('/', (req, res) => {
   res.sendFile(new URL('./public/index.html', import.meta.url).pathname)
 })
 
-app.listen(3000, () => {
-  console.log('http://localhost:3000')
+app.listen(PORT, () => {
+  console.log(`http://localhost:${PORT}`)
 })
